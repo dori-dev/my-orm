@@ -11,4 +11,4 @@ def column(name: str, type: str,
         constraints += 'NOT NULL'
     if unique:
         constraints += 'UNIQUE'
-    return f'{name} {type} {constraints}'
+    return f'{name} {type} {constraints}'.strip()
