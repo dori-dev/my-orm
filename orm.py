@@ -19,7 +19,7 @@ def column(name: str, type: str,
     return f'{name} {type} {constraints}'.strip()
 
 
-def execute_query(query: str):
+def execute(query: str):
     conn = sqlite3.connect(DB_NAME)
     conn.execute(query)
     conn.commit()
@@ -29,7 +29,7 @@ def execute_query(query: str):
 def create_table(table_name: str, columns: list):
     string_columns = ', '.join(columns)
     query = f'CREATE TABLE IF NOT EXISTS {table_name}({string_columns});'
-    execute_query(query)
+    execute(query)
 
 
 def insert_column(table_name: str, **kwargs: dict):
@@ -38,4 +38,4 @@ def insert_column(table_name: str, **kwargs: dict):
     fields_string, values_string = ', '.join(fields), ', '.join(values)
     query = (f'INSERT INTO {table_name} '
              f'({fields_string}) VALUES ({values_string});')
-    execute_query(query)
+    execute(query)
