@@ -1,2 +1,2 @@
-Create a simple ORM
-This is a simple ORM create with python and not a real ORM for use in your project.
+Simple ORM
+It's a simple ORM built with Python and sqlite. This is not a real ORM to use in your project.
