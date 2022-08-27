@@ -32,10 +32,10 @@ def create_table(table_name: str, columns: list):
     execute(query)
 
 
-def insert_column(table_name: str, **kwargs: dict):
-    fields, values = zip(*kwargs.items())
-    values = map(lambda value: f"'{value}'", values)
-    fields_string, values_string = ', '.join(fields), ', '.join(values)
+def insert_column(table_name: str, **data: dict):
+    fields_string = ', '.join(data.keys())
+    values = map(lambda value: repr(value), data.values())
+    values_string = ', '.join(values)
     query = (f'INSERT INTO {table_name} '
              f'({fields_string}) VALUES ({values_string});')
     execute(query)
