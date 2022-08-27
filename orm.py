@@ -33,9 +33,9 @@ def create_table(table_name: str, columns: list):
 
 
 def insert_column(table_name: str, **data: dict):
-    fields_string = ', '.join(data.keys())
-    values = map(lambda value: repr(value), data.values())
-    values_string = ', '.join(values)
-    query = (f'INSERT INTO {table_name} '
-             f'({fields_string}) VALUES ({values_string});')
+    fields = ', '.join(data.keys())
+    values = ', '.join(
+        map(repr, data.values())
+    )
+    query = f'INSERT INTO {table_name} ({fields}) VALUES ({values});'
     execute(query)
