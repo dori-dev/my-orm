@@ -22,3 +22,9 @@ def column(name: str, type: str,
 def execute_query(query: str):
     conn = sqlite3.connect(DB_NAME)
     conn.execute(query)
+
+
+def create_table(table_name: str, columns: list):
+    string_columns = ', '.join(columns)
+    query = f'CREATE TABLE IF NOT EXISTS {table_name}({string_columns});'
+    execute_query(query)
