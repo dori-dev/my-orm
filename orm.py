@@ -1,6 +1,33 @@
+import os
+import sys
 import sqlite3
 
-DB_NAME = 'test.db'
+
+class DB:
+    def __init__(self):
+        self.db_name = os.path.basename(sys.argv[0])[:-3]
+        self.table_name = self.__class__.__name__.lower()
+
+    def create_table(self,  columns: list):
+        string_columns = ', '.join(columns)
+        query = ('CREATE TABLE IF NOT EXISTS '
+                 f'{self.table_name}({string_columns});')
+        self.execute(query)
+
+    def insert_column(self, **data: dict):
+        fields = ', '.join(data.keys())
+        values = ', '.join(
+            map(repr, data.values())
+        )
+        query = (f'INSERT INTO {self.table_name} '
+                 f'({fields}) VALUES ({values});')
+        self.execute(query)
+
+    def execute(self, query: str):
+        conn = sqlite3.connect(self.db_name)
+        conn.execute(query)
+        conn.commit()
+        conn.close()
 
 
 def column(name: str, type: str,
@@ -17,25 +44,3 @@ def column(name: str, type: str,
     if unique:
         constraints += 'UNIQUE'
     return f'{name} {type} {constraints}'.strip()
-
-
-def execute(query: str):
-    conn = sqlite3.connect(DB_NAME)
-    conn.execute(query)
-    conn.commit()
-    conn.close()
-
-
-def create_table(table_name: str, columns: list):
-    string_columns = ', '.join(columns)
-    query = f'CREATE TABLE IF NOT EXISTS {table_name}({string_columns});'
-    execute(query)
-
-
-def insert_column(table_name: str, **data: dict):
-    fields = ', '.join(data.keys())
-    values = ', '.join(
-        map(repr, data.values())
-    )
-    query = f'INSERT INTO {table_name} ({fields}) VALUES ({values});'
-    execute(query)
