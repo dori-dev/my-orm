@@ -89,6 +89,7 @@ class DB:
     db_name = GenerateDBName()
     table_name = GenerateTableName()
     columns = GetColumns()
+    _query = ''
 
     def __init__(self, **data):
         for key, value in data.items():
@@ -146,11 +147,15 @@ class DB:
             statements.append(operator_statement)
         statements = ' AND '.join(statements) or 'true'
         query = f'SELECT * FROM {cls.table_name} WHERE {statements}'
-        print(query)
         return cls._fetchall(query)
 
     @classmethod
+    def queries(cls):
+        return cls._query.strip()
+
+    @classmethod
     def _execute(cls, query: str):
+        cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
         conn.execute(query)
         conn.commit()
@@ -158,6 +163,7 @@ class DB:
 
     @classmethod
     def _fetchall(cls, query: str) -> list:
+        cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
         cur = conn.cursor()
         cur.execute(query)
