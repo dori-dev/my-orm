@@ -93,21 +93,24 @@ class DB:
     def __init__(self, **data):
         for key, value in data.items():
             self.__setattr__(key, value)
-        self.insert_column(**data)
+        self.insert(**data)
+
+    def __init_subclass__(cls, **kwargs):
+        cls._create_table()
 
     @classmethod
     def get_columns(cls):
         return cls.columns.values()
 
     @classmethod
-    def create_table(cls) -> str:
+    def _create_table(cls) -> str:
         string_columns = ', '.join(cls.get_columns())
         query = ('CREATE TABLE IF NOT EXISTS '
                  f'{cls.table_name}({string_columns});')
         cls._execute(query)
         return query
 
-    def insert_column(self, **data: dict):
+    def insert(self, **data: dict):
         fields = ', '.join(data.keys())
         values = ', '.join(
             map(repr, data.values())
