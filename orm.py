@@ -1,18 +1,33 @@
 import os
-import sys
 import sqlite3
+import inspect
+
+
+class GenerateTableName:
+    def __get__(self, instance, owner):
+        return owner.__name__.lower()
+
+
+class GenerateDBName:
+    def __get__(self, instance, owner):
+        file_address = inspect.getfile(owner)
+        db_name = os.path.basename(file_address)[:-3]
+        return f"{db_name}.db"
 
 
 class DB:
-    def __init__(self):
-        self.db_name = os.path.basename(sys.argv[0])[:-3]
-        self.table_name = self.__class__.__name__.lower()
+    db_name = GenerateDBName()
+    table_name = GenerateTableName()
 
-    def create_table(self,  columns: list):
-        string_columns = ', '.join(columns)
+    def get_columns(self):
+        return self.__dict__.values()
+
+    def create_table(self) -> str:
+        string_columns = ', '.join(self.get_columns())
         query = ('CREATE TABLE IF NOT EXISTS '
                  f'{self.table_name}({string_columns});')
         self.execute(query)
+        return query
 
     def insert_column(self, **data: dict):
         fields = ', '.join(data.keys())
