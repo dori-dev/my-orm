@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import inspect
+from typing import Dict
 
 
 class GenerateTableName:
@@ -15,25 +16,37 @@ class GenerateDBName:
         return f"{db_name}.db"
 
 
+class GetColumns:
+    def __get__(self, instance, owner):
+        columns: Dict[str] = owner.__dict__
+        result = {}
+        for name in columns:
+            if not name.startswith('__'):
+                name = name.lower()
+                result[name] = f"{name} {columns[name]}"
+        return result
+
+
 class DB:
     db_name = GenerateDBName()
     table_name = GenerateTableName()
+    columns = GetColumns()
 
-    def __init__(self) -> None:
-        columns = self.__class__.__dict__
-        for name in columns:
-            if not name.startswith('__'):
-                value = f"{name.lower()} {columns[name]}"
-                self.__setattr__(name, value)
+    def __init__(self, **data):
+        for key, value in data.items():
+            self.__setattr__(key, value)
+        self.insert_column(**data)
 
-    def get_columns(self):
-        return self.__dict__.values()
+    @classmethod
+    def get_columns(cls):
+        return cls.columns.values()
 
-    def create_table(self) -> str:
-        string_columns = ', '.join(self.get_columns())
+    @classmethod
+    def create_table(cls) -> str:
+        string_columns = ', '.join(cls.get_columns())
         query = ('CREATE TABLE IF NOT EXISTS '
-                 f'{self.table_name}({string_columns});')
-        self.execute(query)
+                 f'{cls.table_name}({string_columns});')
+        cls._execute(query)
         return query
 
     def insert_column(self, **data: dict):
@@ -41,12 +54,13 @@ class DB:
         values = ', '.join(
             map(repr, data.values())
         )
-        query = (f'INSERT INTO {self.table_name} '
+        query = (f'INSERT OR IGNORE INTO {self.table_name} '
                  f'({fields}) VALUES ({values});')
-        self.execute(query)
+        self._execute(query)
 
-    def execute(self, query: str):
-        conn = sqlite3.connect(self.db_name)
+    @classmethod
+    def _execute(cls, query: str):
+        conn = sqlite3.connect(cls.db_name)
         conn.execute(query)
         conn.commit()
         conn.close()
