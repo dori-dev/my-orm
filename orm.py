@@ -1,7 +1,7 @@
 import os
 import sqlite3
 import inspect
-from typing import Dict
+from typing import Dict, List
 
 
 class GenerateTableName:
@@ -72,32 +72,28 @@ class DB:
         self._execute(query)
 
     @classmethod
-    def all(cls):
+    def all(cls) -> List[Row]:
         query = f'SELECT * FROM {cls.table_name}'
-        result = []
-        rows = cls._fetchall(query)
-        for row in rows:
-            row = dict(zip(
-                cls.columns.keys(),
-                row
-            ))
-            result.append(Row(**row))
-        return result
+        return cls._fetchall(query)
 
     @classmethod
-    def get(cls, *fields: dict):
+    def get(cls, *fields: dict) -> List[Row]:
         fields = [field for field in fields if field in cls.columns]
-        fields_string = ', '.join(fields)
+        fields_string = ', '.join(fields) or '*'
         query = f'SELECT {fields_string} FROM {cls.table_name}'
-        result = []
-        rows = cls._fetchall(query)
-        for row in rows:
-            row = dict(zip(
-                cls.columns.keys(),
-                row
-            ))
-            result.append(Row(**row))
-        return result
+        return cls._fetchall(query)
+
+    @classmethod
+    def filter(cls, **kwargs):
+        statements = [
+            f'{field}={repr(value)}'
+            for field, value in kwargs.items()
+            if field in cls.columns
+        ]
+        statements = ', '.join(statements) or 'true'
+        query = f'SELECT * FROM {cls.table_name} WHERE {statements}'
+        print(query)
+        return cls._fetchall(query)
 
     @classmethod
     def _execute(cls, query: str):
@@ -112,8 +108,15 @@ class DB:
         cur = conn.cursor()
         cur.execute(query)
         rows = cur.fetchall()
+        result = []
+        for row in rows:
+            row = dict(zip(
+                cls.columns.keys(),
+                row
+            ))
+            result.append(Row(**row))
         conn.close()
-        return rows
+        return result
 
 
 def column(type: str, primary_key: bool = False, unique: bool = False,
