@@ -19,6 +19,16 @@ class DB:
     db_name = GenerateDBName()
     table_name = GenerateTableName()
 
+    def __init__(self) -> None:
+        cls = self.__class__
+        columns = cls.__dict__
+        for column in columns:
+            if not column.startswith('__'):
+                self.__setattr__(
+                    column,
+                    columns[column].__get__(self, cls)
+                )
+
     def get_columns(self):
         return self.__dict__.values()
 
@@ -45,17 +55,25 @@ class DB:
         conn.close()
 
 
-def column(name: str, type: str,
-           primary_key: bool = False, unique: bool = False,
-           nullable: bool = True, default: str = None):
-    if primary_key:
-        return f'{name} {type} PRIMARY KEY NOT NULL'
-    constraints = ''
-    if nullable:
-        if default is not None:
-            constraints += f'DEFAULT {default}'
-    else:
-        constraints += 'NOT NULL'
-    if unique:
-        constraints += 'UNIQUE'
-    return f'{name} {type} {constraints}'.strip()
+class Column:
+    def __set_name__(self, owner, name: str):
+        self.query = f"{name.lower()} " + self.query
+
+    def __init__(self, type: str,
+                 primary_key: bool = False, unique: bool = False,
+                 nullable: bool = True, default: str = None):
+        if primary_key:
+            self.query = f'{type} PRIMARY KEY NOT NULL'
+            return
+        constraints = ''
+        if nullable:
+            if default is not None:
+                constraints += f'DEFAULT {default}'
+        else:
+            constraints += 'NOT NULL'
+        if unique:
+            constraints += 'UNIQUE'
+        self.query = f'{type} {constraints}'.strip()
+
+    def __get__(self, instance, owner):
+        return self.query
