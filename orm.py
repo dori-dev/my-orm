@@ -40,6 +40,51 @@ class Row:
         return f"<{result}>"
 
 
+class Operator:
+    def __init__(self, *args, **kwargs):
+        self.fields = kwargs
+        self.args = args
+        self.operator = self.__class__.__name__
+
+    def generate_statements(self):
+        operator = f' {self.operator} '
+        statements = [
+            f'{key}={repr(value)}'
+            for key, value in self.fields.items()
+        ]
+        args_statements = operator.join(
+            map(
+                lambda arg: arg.generate_statements()
+                if isinstance(arg, Operator)
+                else str(arg),
+                self.args
+            )
+        )
+        if args_statements:
+            statements.append(args_statements)
+        return f"({operator.join(statements)})"
+
+    def __repr__(self) -> str:
+        return self.generate_statements()
+
+
+class AND(Operator):
+    pass
+
+
+class OR(Operator):
+    pass
+
+
+class NOT(Operator):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.operator = 'AND'
+
+    def __repr__(self) -> str:
+        return f"NOT {super().__repr__()}"
+
+
 class DB:
     db_name = GenerateDBName()
     table_name = GenerateTableName()
@@ -84,13 +129,19 @@ class DB:
         return cls._fetchall(query)
 
     @classmethod
-    def filter(cls, **kwargs):
+    def filter(cls, *args, **kwargs):
+        operator_statement = ' AND '.join(map(
+            lambda arg: f'{arg}',
+            args
+        )).strip()
         statements = [
             f'{field}={repr(value)}'
             for field, value in kwargs.items()
             if field in cls.columns
         ]
-        statements = ', '.join(statements) or 'true'
+        if operator_statement:
+            statements.append(operator_statement)
+        statements = ' AND '.join(statements) or 'true'
         query = f'SELECT * FROM {cls.table_name} WHERE {statements}'
         print(query)
         return cls._fetchall(query)
