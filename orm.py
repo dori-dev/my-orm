@@ -77,7 +77,25 @@ class DB:
         result = []
         rows = cls._fetchall(query)
         for row in rows:
-            row = dict(zip(cls.columns.keys(), row))
+            row = dict(zip(
+                cls.columns.keys(),
+                row
+            ))
+            result.append(Row(**row))
+        return result
+
+    @classmethod
+    def get(cls, *fields: dict):
+        fields = [field for field in fields if field in cls.columns]
+        fields_string = ', '.join(fields)
+        query = f'SELECT {fields_string} FROM {cls.table_name}'
+        result = []
+        rows = cls._fetchall(query)
+        for row in rows:
+            row = dict(zip(
+                cls.columns.keys(),
+                row
+            ))
             result.append(Row(**row))
         return result
 
