@@ -244,6 +244,19 @@ class DB:
         query = f'DELETE FROM {self.table_name} WHERE {condition}'
         self._execute(query)
 
+    def update(self, **kwargs):
+        condition = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        new = ', '.join([
+            f'{key} = {repr(value)}'
+            for key, value in kwargs.items()
+        ])
+        if new.strip():
+            query = f'UPDATE {self.table_name} SET {new} WHERE {condition}'
+            self._execute(query)
+
     @classmethod
     def _execute(cls, query: str):
         cls._query += f"{query}\n\n"
