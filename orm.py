@@ -226,6 +226,11 @@ class DB:
         return cls._query.strip()
 
     @classmethod
+    def remove(cls):
+        query = f'DROP TABLE {cls.table_name}'
+        cls._execute(query)
+
+    @classmethod
     def _execute(cls, query: str):
         cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
