@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import sqlite3
 import inspect
@@ -37,21 +38,8 @@ class GetColumns:
         return result
 
 
-class Row:
-    def __init__(self, **data):
-        for key, value in data.items():
-            self.__setattr__(key, value)
-
-    def __repr__(self) -> str:
-        data = self.__dict__
-        result = ' | '.join([
-            f'{repr(attr)}:{repr(data[attr])}' for attr in data
-        ])
-        return f"<{result}>"
-
-
 class Rows:
-    def __init__(self, array: List[Row]):
+    def __init__(self, array: List[DB]):
         self.rows = array
 
     def count(self):
@@ -156,19 +144,28 @@ class DB:
         self._execute(query)
 
     @classmethod
-    def all(cls) -> List[Row]:
-        query = f'SELECT * FROM {cls.table_name}'
+    def all(cls, limit_: int = None) -> List['DB']:
+        if limit_ is None:
+            query = f'SELECT * FROM {cls.table_name};'
+        else:
+            query = f'SELECT * FROM {cls.table_name} LIMIT {limit_};'
         return cls._fetchall(query)
 
     @classmethod
-    def get(cls, *fields: dict) -> List[Row]:
+    def get(cls, *fields: dict, limit_: int = None) -> List[DB]:
         fields = [field for field in fields if field in cls.columns]
         fields_string = ', '.join(fields) or '*'
-        query = f'SELECT {fields_string} FROM {cls.table_name}'
+        if limit_ is None:
+            query = f'SELECT {fields_string} FROM {cls.table_name};'
+        else:
+            query = (
+                f'SELECT {fields_string} FROM {cls.table_name} '
+                f'LIMIT {limit_};'
+            )
         return cls._fetchall(query)
 
     @classmethod
-    def filter(cls, *args, **kwargs):
+    def filter(cls, *args, limit_: int = None, **kwargs) -> List[DB]:
         conditions = []
         for key, value in kwargs.items():
             if key not in cls.columns:
@@ -191,7 +188,15 @@ class DB:
                 conditions.append(f'{key} = {repr(value)}')
         conditions.extend(list(map(repr, args)))
         statements = ' AND '.join(conditions) or 'true'
-        query = f'SELECT * FROM {cls.table_name} WHERE {statements}'
+        if limit_ is None:
+            query = (
+                f'SELECT * FROM {cls.table_name} WHERE {statements};'
+            )
+        else:
+            query = (
+                f'SELECT * FROM {cls.table_name} '
+                f'WHERE {statements} LIMIT {limit_};'
+            )
         return cls._fetchall(query)
 
     @classmethod
@@ -260,7 +265,9 @@ class DB:
                 cls.columns.keys(),
                 row
             ))
-            result.append(Row(**row))
+            result.append(
+                cls(**row)
+            )
         conn.close()
         return Rows(result)
 
@@ -273,6 +280,13 @@ class DB:
         result = cur.fetchone()
         conn.close()
         return result
+
+    def __repr__(self) -> str:
+        result = ' | '.join([
+            f'{repr(attr)}:{repr(value)}'
+            for attr, value in self.data.items()
+        ])
+        return f"<{result}>"
 
 
 def column(type: str, primary_key: bool = False, unique: bool = False,
