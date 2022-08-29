@@ -144,28 +144,24 @@ class DB:
         self._execute(query)
 
     @classmethod
-    def all(cls, limit_: int = None) -> List['DB']:
-        if limit_ is None:
-            query = f'SELECT * FROM {cls.table_name};'
-        else:
-            query = f'SELECT * FROM {cls.table_name} LIMIT {limit_};'
+    def all(cls, limit_: int = None, order_by_: str = None,
+            reverse_: bool = False) -> List['DB']:
+        filters = cls._set_filter(limit_, order_by_, reverse_)
+        query = f'SELECT * FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
     @classmethod
-    def get(cls, *fields: dict, limit_: int = None) -> List[DB]:
+    def get(cls, *fields: dict, limit_: int = None,
+            order_by_: str = None, reverse_: bool = False) -> List[DB]:
         fields = [field for field in fields if field in cls.columns]
         fields_string = ', '.join(fields) or '*'
-        if limit_ is None:
-            query = f'SELECT {fields_string} FROM {cls.table_name};'
-        else:
-            query = (
-                f'SELECT {fields_string} FROM {cls.table_name} '
-                f'LIMIT {limit_};'
-            )
+        filters = cls._set_filter(limit_, order_by_, reverse_)
+        query = f'SELECT {fields_string} FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
     @classmethod
-    def filter(cls, *args, limit_: int = None, **kwargs) -> List[DB]:
+    def filter(cls, *args, limit_: int = None, order_by_: str = None,
+               reverse_: bool = False, **kwargs) -> List[DB]:
         conditions = []
         for key, value in kwargs.items():
             if key not in cls.columns:
@@ -188,16 +184,28 @@ class DB:
                 conditions.append(f'{key} = {repr(value)}')
         conditions.extend(list(map(repr, args)))
         statements = ' AND '.join(conditions) or 'true'
-        if limit_ is None:
-            query = (
-                f'SELECT * FROM {cls.table_name} WHERE {statements};'
-            )
-        else:
-            query = (
-                f'SELECT * FROM {cls.table_name} '
-                f'WHERE {statements} LIMIT {limit_};'
-            )
+        filters = cls._set_filter(limit_, order_by_, reverse_)
+        query = (
+            f'SELECT * FROM {cls.table_name} WHERE {statements} {filters};'
+        )
         return cls._fetchall(query)
+
+    @staticmethod
+    def _set_filter(limit, order_by, reverse) -> str:
+        if limit is None:
+            limit = ''
+        else:
+            limit = f'LIMIT {limit}'
+        if order_by is None:
+            order_by = ''
+            sorting = ''
+        else:
+            order_by = F' ORDER BY {order_by}'
+            if reverse is False:
+                sorting = ' ASC'
+            else:
+                sorting = ' DESC'
+        return f'{limit}{order_by}{sorting}'
 
     @classmethod
     def max(cls, column_name: str):
