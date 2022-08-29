@@ -126,6 +126,7 @@ class DB:
     _query = ''
 
     def __init__(self, **data):
+        self.data = data
         for key, value in data.items():
             self.__setattr__(key, value)
         self.insert(**data)
@@ -226,9 +227,17 @@ class DB:
         return cls._query.strip()
 
     @classmethod
-    def remove(cls):
+    def remove_table(cls):
         query = f'DROP TABLE {cls.table_name}'
         cls._execute(query)
+
+    def remove(self):
+        condition = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        query = f'DELETE FROM {self.table_name} WHERE {condition}'
+        self._execute(query)
 
     @classmethod
     def _execute(cls, query: str):
