@@ -3,6 +3,16 @@ import sqlite3
 import inspect
 from typing import Dict, List
 
+OPERATORS = {
+    'lt': '<',
+    'lte': '<=',
+    'gt': '>',
+    'gte': '>=',
+    'n': '!=',
+    'in': 'IN',
+    'like': 'LIKE',
+}
+
 
 class GenerateTableName:
     def __get__(self, instance, owner):
@@ -134,18 +144,28 @@ class DB:
 
     @classmethod
     def filter(cls, *args, **kwargs):
-        operator_statement = ' AND '.join(map(
-            lambda arg: f'{arg}',
-            args
-        )).strip()
-        statements = [
-            f'{field}={repr(value)}'
-            for field, value in kwargs.items()
-            if field in cls.columns
-        ]
-        if operator_statement:
-            statements.append(operator_statement)
-        statements = ' AND '.join(statements) or 'true'
+        conditions = []
+        for key, value in kwargs.items():
+            if key not in cls.columns:
+                continue
+            if '__' in key:
+                filter = key.split('__')
+                if len(filter) != 2:
+                    continue
+                key, operator = filter
+                key, operator = key.lower(), operator.lower()
+                if operator in OPERATORS:
+                    conditions.append(
+                        f'{key} {OPERATORS[operator]} {repr(value)}'
+                    )
+                elif operator == 'between':
+                    start, *_, end = value
+                    conditions.append(
+                        f'{key} BETWEEN {repr(start)} AND {repr(end)}')
+            else:
+                conditions.append(f'{key} = {repr(value)}')
+        conditions.extend(list(map(repr, args)))
+        statements = ' AND '.join(conditions) or 'true'
         query = f'SELECT * FROM {cls.table_name} WHERE {statements}'
         return cls._fetchall(query)
 
