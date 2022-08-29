@@ -194,6 +194,34 @@ class DB:
         return cls._fetchall(query)
 
     @classmethod
+    def max(cls, column_name: str):
+        query = f'SELECT MAX({column_name}) FROM {cls.table_name}'
+        result = cls._fetch(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def min(cls, column_name: str):
+        query = f'SELECT MIN({column_name}) FROM {cls.table_name}'
+        result = cls._fetch(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def avg(cls, column_name: str):
+        query = f'SELECT AVG({column_name}) FROM {cls.table_name}'
+        result = cls._fetch(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def sum(cls, column_name: str):
+        query = f'SELECT SUM({column_name}) FROM {cls.table_name}'
+        result = cls._fetch(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
     def queries(cls):
         return cls._query.strip()
 
@@ -221,6 +249,16 @@ class DB:
             result.append(Row(**row))
         conn.close()
         return Rows(result)
+
+    @classmethod
+    def _fetch(cls, query: str):
+        cls._query += f"{query}\n\n"
+        conn = sqlite3.connect(cls.db_name)
+        cur = conn.cursor()
+        cur.execute(query)
+        result = cur.fetchone()
+        conn.close()
+        return result
 
 
 def column(type: str, primary_key: bool = False, unique: bool = False,
