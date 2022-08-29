@@ -50,6 +50,30 @@ class Row:
         return f"<{result}>"
 
 
+class Rows:
+    def __init__(self, array: List[Row]):
+        self.rows = array
+
+    def count(self):
+        return len(self.rows)
+
+    def first(self):
+        if self.rows:
+            return self.rows[0]
+        return []
+
+    def last(self):
+        if self.rows:
+            return self.rows[-1]
+        return []
+
+    def __repr__(self) -> str:
+        return repr(self.rows)
+
+    def __iter__(self):
+        return iter(self.rows)
+
+
 class Operator:
     def __init__(self, *args, **kwargs):
         self.fields = kwargs
@@ -196,7 +220,7 @@ class DB:
             ))
             result.append(Row(**row))
         conn.close()
-        return result
+        return Rows(result)
 
 
 def column(type: str, primary_key: bool = False, unique: bool = False,
