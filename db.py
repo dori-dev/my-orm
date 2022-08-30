@@ -158,6 +158,13 @@ class DB:
         if result:
             return {column_name: result[0]}
 
+    @classmethod
+    def count(cls):
+        query = f'SELECT COUNT(1) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        if result:
+            return {'count': result[0]}
+
     def remove(self):
         where = ' AND '.join([
             f'{key} = {repr(value)}'
