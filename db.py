@@ -154,7 +154,7 @@ class DB:
         self.insert(**data)
 
     def __init_subclass__(cls, **kwargs):
-        cls._create_table()
+        cls._manage_table()
 
     @classmethod
     def insert(cls, **data: dict):
@@ -297,6 +297,16 @@ class DB:
         return cls._query.strip()
 
     @ classmethod
+    def _manage_table(cls) -> str:
+        try:
+            current_columns = cls._get_current_table_columns()
+            if current_columns != list(cls.columns.keys()):
+                cls._alter_columns(current_columns)
+                cls._drop_columns(current_columns)
+        except sqlite3.OperationalError:
+            cls._create_table()
+
+    @ classmethod
     def _create_table(cls) -> str:
         columns = list(cls.columns.values()).copy()
         foreign_keys = ', '.join(cls.foreign_keys.values())
@@ -306,6 +316,28 @@ class DB:
         query = (f'CREATE TABLE IF NOT EXISTS {cls.table_name}'
                  f'({string_columns});')
         cls._execute(query)
+
+    @classmethod
+    def _alter_columns(cls, current_columns):
+        new_columns = [
+            value
+            for column, value in cls.columns.items()
+            if column not in current_columns
+        ]
+        for field in new_columns:
+            query = f'ALTER TABLE {cls.table_name} ADD {field};'
+            cls._execute(query)
+
+    @classmethod
+    def _drop_columns(cls, current_columns):
+        removed_columns = [
+            column
+            for column in current_columns
+            if column not in cls.columns.keys()
+        ]
+        for field in removed_columns:
+            query = f'ALTER TABLE {cls.table_name} DROP {field};'
+            cls._execute(query)
 
     @ staticmethod
     def _set_config(config: Union[ResultConfig, None]) -> str:
@@ -388,6 +420,16 @@ class DB:
         result = cur.fetchone()
         conn.close()
         return result
+
+    @classmethod
+    def _get_current_table_columns(cls):
+        query = f'SELECT * FROM {cls.table_name}'
+        conn = sqlite3.connect(cls.db_name)
+        cur = conn.cursor()
+        cur.execute(query)
+        columns = [description[0] for description in cur.description]
+        conn.close()
+        return columns
 
     def __repr__(self) -> str:
         result = ', '.join([

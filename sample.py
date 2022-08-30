@@ -21,7 +21,8 @@ class School(DB):
 class Student(DB):
     person = columns.ForeignKey(Person)
     school = columns.ForeignKey(School)
-    class_name = columns.VarChar()
+    # class_name = columns.VarChar()
+    gpa = columns.TinyInt(default=20)
 
 
 p1 = Person(
@@ -123,7 +124,8 @@ print(school1)
 student = Student(
     person=p1,
     school=school1,
-    class_name='A3',
+    # class_name='A3',
+    gpa=10,
 )
 
 print(school1.id)
