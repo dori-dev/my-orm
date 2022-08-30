@@ -147,8 +147,8 @@ class DB:
 
     @ classmethod
     def all(cls, config: Union[ResultConfig, None] = None) -> List[Row]:
-        filters = cls._set_config(config)
-        query = f'SELECT * FROM {cls.table_name} {filters};'
+        configs = cls._set_config(config)
+        query = f'SELECT * FROM {cls.table_name}{configs};'
         return cls._fetchall(query)
 
     @ classmethod
@@ -160,8 +160,8 @@ class DB:
             if field in cls.columns
         ]
         fields_string = ', '.join(fields) or '*'
-        filters = cls._set_config(config)
-        query = f'SELECT {fields_string} FROM {cls.table_name} {filters};'
+        configs = cls._set_config(config)
+        query = f'SELECT {fields_string} FROM {cls.table_name}{configs};'
         return cls._fetchall(query)
 
     @ classmethod
@@ -178,50 +178,50 @@ class DB:
                 condition = None
         conditions.extend(list(map(repr, args)))
         statements = ' AND '.join(conditions) or 'true'
-        filters = cls._set_config(config)
+        configs = cls._set_config(config)
         query = (
-            f'SELECT * FROM {cls.table_name} WHERE {statements} {filters};'
+            f'SELECT * FROM {cls.table_name} WHERE {statements}{configs};'
         )
         return cls._fetchall(query)
 
     @ classmethod
     def max(cls, column_name: str):
-        query = f'SELECT MAX({column_name}) FROM {cls.table_name}'
+        query = f'SELECT MAX({column_name}) FROM {cls.table_name};'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
     @ classmethod
     def min(cls, column_name: str):
-        query = f'SELECT MIN({column_name}) FROM {cls.table_name}'
+        query = f'SELECT MIN({column_name}) FROM {cls.table_name};'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
     @ classmethod
     def avg(cls, column_name: str):
-        query = f'SELECT AVG({column_name}) FROM {cls.table_name}'
+        query = f'SELECT AVG({column_name}) FROM {cls.table_name};'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
     @ classmethod
     def sum(cls, column_name: str):
-        query = f'SELECT SUM({column_name}) FROM {cls.table_name}'
+        query = f'SELECT SUM({column_name}) FROM {cls.table_name};'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
     @ classmethod
     def count(cls):
-        query = f'SELECT COUNT(1) FROM {cls.table_name}'
+        query = f'SELECT COUNT(1) FROM {cls.table_name};'
         result = cls._fetch_result(query)
         if result:
             return {'count': result[0]}
 
     @classmethod
     def first(cls) -> DB:
-        query = f'SELECT * FROM {cls.table_name} WHERE id=1'
+        query = f'SELECT * FROM {cls.table_name} WHERE id=1;'
         result = cls._fetch_result(query)
         if result is None:
             return None
@@ -231,7 +231,7 @@ class DB:
     @classmethod
     def last(cls) -> DB:
         max_id = cls._get_max_id()
-        query = f'SELECT * FROM {cls.table_name} WHERE id={max_id}'
+        query = f'SELECT * FROM {cls.table_name} WHERE id={max_id};'
         result = cls._fetch_result(query)
         if result is None:
             return None
@@ -243,7 +243,7 @@ class DB:
             f'{key} = {repr(value)}'
             for key, value in self.data.items()
         ])
-        query = f'DELETE FROM {self.table_name} WHERE {where}'
+        query = f'DELETE FROM {self.table_name} WHERE {where};'
         self._execute(query)
 
     def update(self, **kwargs):
@@ -257,10 +257,10 @@ class DB:
         ])
         if new_data.strip():
             query = (
-                f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
+                f'UPDATE {self.table_name} SET {new_data} WHERE {where};'
             )
             self._execute(query)
-        query = f'SELECT * FROM {self.table_name} WHERE id={self.id}'
+        query = f'SELECT * FROM {self.table_name} WHERE id={self.id};'
         result = self._fetch_result(query)
         data = dict(zip(self.columns.keys(), result))
         self.data = data
@@ -300,7 +300,7 @@ class DB:
                 sorting = ' ASC'
             else:
                 sorting = ' DESC'
-        return f'{order_by}{sorting}{limit}'
+        return f' {order_by}{sorting}{limit}'
 
     @ staticmethod
     def _set_operator_filter(key: str, value: str):
