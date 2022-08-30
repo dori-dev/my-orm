@@ -78,7 +78,7 @@ class Row:
         conn.close()
 
     def __repr__(self) -> str:
-        result = ' | '.join([
+        result = ', '.join([
             f'{repr(attr)}:{repr(value)}'
             for attr, value in self.data.items()
         ])
@@ -169,9 +169,7 @@ class DB:
                **kwargs) -> List[Row]:
         conditions = []
         for key, value in kwargs.items():
-            if key not in cls.columns:
-                condition = None
-            elif '__' in key:
+            if '__' in key:
                 condition = cls._set_operator_filter(key, value)
             else:
                 condition = f'{key} = {repr(value)}'
@@ -262,6 +260,11 @@ class DB:
                 f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
             )
             self._execute(query)
+        query = f'SELECT * FROM {self.table_name} WHERE id={self.id}'
+        result = self._fetch_result(query)
+        data = dict(zip(self.columns.keys(), result))
+        self.data = data
+        self.__dict__.update(data)
 
     @ classmethod
     def remove_table(cls):
@@ -287,17 +290,17 @@ class DB:
         if limit is None:
             limit = ''
         else:
-            limit = f'LIMIT {limit}'
+            limit = f' LIMIT {limit}'
         if order_by is None:
             order_by = ''
             sorting = ''
         else:
-            order_by = F' ORDER BY {order_by}'
+            order_by = F'ORDER BY {order_by}'
             if reverse is False:
                 sorting = ' ASC'
             else:
                 sorting = ' DESC'
-        return f'{limit}{order_by}{sorting}'
+        return f'{order_by}{sorting}{limit}'
 
     @ staticmethod
     def _set_operator_filter(key: str, value: str):
@@ -362,7 +365,7 @@ class DB:
         return result
 
     def __repr__(self) -> str:
-        result = ' | '.join([
+        result = ', '.join([
             f'{repr(attr)}:{repr(value)}'
             for attr, value in self.data.items()
         ])
