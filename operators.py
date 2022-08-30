@@ -22,13 +22,7 @@ class Operator:
             for key, value in self.fields.items()
         ]
         args_statements = operator.join(
-            map(
-                lambda arg: arg.generate_statements()
-                if isinstance(arg, Operator)
-                else str(arg),
-                self.args
-            )
-        )
+            map(str, self.args))
         if args_statements:
             statements.append(args_statements)
         return f"({operator.join(statements)})"

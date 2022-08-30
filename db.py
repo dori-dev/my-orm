@@ -2,55 +2,67 @@ from __future__ import annotations
 import os
 import sqlite3
 import inspect
-from typing import Dict, List
+from typing import Dict, List, NamedTuple, Union
 from operators import OPERATORS
 
 
 class GenerateTableName:
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner) -> str:
         return owner.__name__.lower()
 
 
 class GenerateDBName:
-    def __get__(self, instance, owner):
+    def __get__(self, instance, owner) -> str:
         file_address = inspect.getfile(owner)
         db_name = os.path.basename(file_address)[:-3]
         return f"{db_name}.db"
 
 
 class GetColumns:
-    def __get__(self, instance, owner):
-        columns: Dict[str] = owner.__dict__
-        result = {}
-        for name in columns:
-            if not name.startswith('__'):
-                name = name.lower()
-                result[name] = f"{name} {columns[name]}"
-        return result
+    def get_columns(self, owner) -> Dict[str, str]:
+        class_variables: Dict[str, str] = owner.__dict__
+        return (
+            (key, value)
+            for key, value in class_variables.items()
+            # remove python magic method from class variables
+            if not key.startswith('__')
+        )
+
+    def __get__(self, instance, owner) -> Dict[str, str]:
+        return {
+            name.lower(): f"{name.lower()} {value}"
+            for name, value in self.get_columns(owner)
+        }
 
 
 class Rows:
-    def __init__(self, array: List[DB]):
-        self.rows = array
+    def __init__(self, rows: List[DB]):
+        self.rows = rows
 
-    def count(self):
+    def count(self) -> int:
         return len(self.rows)
 
-    def first(self):
+    def first(self) -> Union[DB, None]:
         if self.rows:
             return self.rows[0]
-        return []
+        return None
 
-    def last(self):
+    def last(self) -> Union[DB, None]:
         if self.rows:
             return self.rows[-1]
-        return []
+        return None
 
     def __repr__(self) -> str:
         return repr(self.rows)
 
-    def __iter__(self):
+    def __iter__(self) -> List[DB]:
         return iter(self.rows)
+
+
+class ResultConfig(NamedTuple):
+    limit: Union[int, None] = None
+    order_by: Union[str, None] = None
+    reverse: bool = False
 
 
 class DB:
@@ -68,18 +80,6 @@ class DB:
     def __init_subclass__(cls, **kwargs):
         cls._create_table()
 
-    @classmethod
-    def get_columns(cls):
-        return cls.columns.values()
-
-    @classmethod
-    def _create_table(cls) -> str:
-        string_columns = ', '.join(cls.get_columns())
-        query = ('CREATE TABLE IF NOT EXISTS '
-                 f'{cls.table_name}({string_columns});')
-        cls._execute(query)
-        return query
-
     def insert(self, **data: dict):
         fields = ', '.join(data.keys())
         values = ', '.join(
@@ -90,54 +90,118 @@ class DB:
         self._execute(query)
 
     @classmethod
-    def all(cls, limit_: int = None, order_by_: str = None,
-            reverse_: bool = False) -> List['DB']:
-        filters = cls._set_filter(limit_, order_by_, reverse_)
+    def all(cls, config: Union[ResultConfig, None] = None) -> List[DB]:
+        filters = cls._set_config(config)
         query = f'SELECT * FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
     @classmethod
-    def get(cls, *fields: dict, limit_: int = None,
-            order_by_: str = None, reverse_: bool = False) -> List[DB]:
-        fields = [field for field in fields if field in cls.columns]
+    def get(cls, *fields: dict,
+            config: Union[ResultConfig, None] = None) -> List[DB]:
+        fields = [
+            field
+            for field in fields
+            if field in cls.columns
+        ]
         fields_string = ', '.join(fields) or '*'
-        filters = cls._set_filter(limit_, order_by_, reverse_)
+        filters = cls._set_config(config)
         query = f'SELECT {fields_string} FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
     @classmethod
-    def filter(cls, *args, limit_: int = None, order_by_: str = None,
-               reverse_: bool = False, **kwargs) -> List[DB]:
+    def filter(cls, *args, config: Union[ResultConfig, None] = None,
+               **kwargs) -> List[DB]:
         conditions = []
         for key, value in kwargs.items():
             if key not in cls.columns:
-                continue
-            if '__' in key:
-                filter = key.split('__')
-                if len(filter) != 2:
-                    continue
-                key, operator = filter
-                key, operator = key.lower(), operator.lower()
-                if operator in OPERATORS:
-                    conditions.append(
-                        f'{key} {OPERATORS[operator]} {repr(value)}'
-                    )
-                elif operator == 'between':
-                    start, *_, end = value
-                    conditions.append(
-                        f'{key} BETWEEN {repr(start)} AND {repr(end)}')
+                condition = None
+            elif '__' in key:
+                condition = cls._set_operator_filter(key, value)
             else:
-                conditions.append(f'{key} = {repr(value)}')
+                condition = f'{key} = {repr(value)}'
+            if condition is not None:
+                conditions.append(condition)
+                condition = None
         conditions.extend(list(map(repr, args)))
         statements = ' AND '.join(conditions) or 'true'
-        filters = cls._set_filter(limit_, order_by_, reverse_)
+        filters = cls._set_config(config)
         query = (
             f'SELECT * FROM {cls.table_name} WHERE {statements} {filters};'
         )
         return cls._fetchall(query)
 
+    @classmethod
+    def max(cls, column_name: str):
+        query = f'SELECT MAX({column_name}) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def min(cls, column_name: str):
+        query = f'SELECT MIN({column_name}) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def avg(cls, column_name: str):
+        query = f'SELECT AVG({column_name}) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        if result:
+            return {column_name: result[0]}
+
+    @classmethod
+    def sum(cls, column_name: str):
+        query = f'SELECT SUM({column_name}) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        if result:
+            return {column_name: result[0]}
+
+    def remove(self):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        query = f'DELETE FROM {self.table_name} WHERE {where}'
+        self._execute(query)
+
+    def update(self, **kwargs):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        new_data = ', '.join([
+            f'{key} = {repr(value)}'
+            for key, value in kwargs.items()
+        ])
+        if new_data.strip():
+            query = (
+                f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
+            )
+            self._execute(query)
+
+    @classmethod
+    def remove_table(cls):
+        query = f'DROP TABLE {cls.table_name}'
+        cls._execute(query)
+
+    @classmethod
+    def queries(cls):
+        return cls._query.strip()
+
+    @classmethod
+    def _create_table(cls) -> str:
+        string_columns = ', '.join(cls.columns.values())
+        query = ('CREATE TABLE IF NOT EXISTS '
+                 f'{cls.table_name}({string_columns});')
+        cls._execute(query)
+
     @staticmethod
-    def _set_filter(limit, order_by, reverse) -> str:
+    def _set_config(config: Union[ResultConfig, None]) -> str:
+        if config is None:
+            return ''
+        limit, order_by, reverse = config
         if limit is None:
             limit = ''
         else:
@@ -153,63 +217,22 @@ class DB:
                 sorting = ' DESC'
         return f'{limit}{order_by}{sorting}'
 
-    @classmethod
-    def max(cls, column_name: str):
-        query = f'SELECT MAX({column_name}) FROM {cls.table_name}'
-        result = cls._fetch(query)
-        if result:
-            return {column_name: result[0]}
-
-    @classmethod
-    def min(cls, column_name: str):
-        query = f'SELECT MIN({column_name}) FROM {cls.table_name}'
-        result = cls._fetch(query)
-        if result:
-            return {column_name: result[0]}
-
-    @classmethod
-    def avg(cls, column_name: str):
-        query = f'SELECT AVG({column_name}) FROM {cls.table_name}'
-        result = cls._fetch(query)
-        if result:
-            return {column_name: result[0]}
-
-    @classmethod
-    def sum(cls, column_name: str):
-        query = f'SELECT SUM({column_name}) FROM {cls.table_name}'
-        result = cls._fetch(query)
-        if result:
-            return {column_name: result[0]}
-
-    @classmethod
-    def queries(cls):
-        return cls._query.strip()
-
-    @classmethod
-    def remove_table(cls):
-        query = f'DROP TABLE {cls.table_name}'
-        cls._execute(query)
-
-    def remove(self):
-        condition = ' AND '.join([
-            f'{key} = {repr(value)}'
-            for key, value in self.data.items()
-        ])
-        query = f'DELETE FROM {self.table_name} WHERE {condition}'
-        self._execute(query)
-
-    def update(self, **kwargs):
-        condition = ' AND '.join([
-            f'{key} = {repr(value)}'
-            for key, value in self.data.items()
-        ])
-        new = ', '.join([
-            f'{key} = {repr(value)}'
-            for key, value in kwargs.items()
-        ])
-        if new.strip():
-            query = f'UPDATE {self.table_name} SET {new} WHERE {condition}'
-            self._execute(query)
+    @staticmethod
+    def _set_operator_filter(key: str, value: str):
+        filter = key.split('__')
+        if len(filter) != 2:
+            return None
+        key, operator = filter
+        key, operator = key.lower(), operator.lower()
+        if operator in OPERATORS:
+            return (
+                f'{key} {OPERATORS[operator]} {repr(value)}'
+            )
+        elif operator == 'between':
+            start, *_, end = value
+            return (
+                f'{key} BETWEEN {repr(start)} AND {repr(end)}'
+            )
 
     @classmethod
     def _execute(cls, query: str):
@@ -239,7 +262,7 @@ class DB:
         return Rows(result)
 
     @classmethod
-    def _fetch(cls, query: str):
+    def _fetch_result(cls, query: str):
         cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
         cur = conn.cursor()
