@@ -40,10 +40,42 @@ class GetColumns:
 
 
 class Row:
-    def __init__(self, **data):
+    def __init__(self, db_name_: str, table_name_: str, **data):
         self.data = data
         for key, value in data.items():
             self.__setattr__(key, value)
+        Row.db_name = db_name_
+        Row.table_name = table_name_
+
+    def remove(self):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        query = f'DELETE FROM {self.table_name} WHERE {where}'
+        self._execute(query)
+
+    def update(self, **kwargs):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        new_data = ', '.join([
+            f'{key} = {repr(value)}'
+            for key, value in kwargs.items()
+        ])
+        if new_data.strip():
+            query = (
+                f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
+            )
+            self._execute(query)
+
+    @ classmethod
+    def _execute(cls, query: str):
+        conn = sqlite3.connect(cls.db_name)
+        conn.execute(query)
+        conn.commit()
+        conn.close()
 
     def __repr__(self) -> str:
         result = ' | '.join([
@@ -196,7 +228,7 @@ class DB:
         if result is None:
             return None
         row = dict(zip(cls.columns.keys(), result))
-        return Row(**row)
+        return Row(cls.db_name, cls.table_name, **row)
 
     @classmethod
     def last(cls) -> DB:
@@ -206,7 +238,30 @@ class DB:
         if result is None:
             return None
         row = dict(zip(cls.columns.keys(), result))
-        return Row(**row)
+        return Row(cls.db_name, cls.table_name, **row)
+
+    def remove(self):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        query = f'DELETE FROM {self.table_name} WHERE {where}'
+        self._execute(query)
+
+    def update(self, **kwargs):
+        where = ' AND '.join([
+            f'{key} = {repr(value)}'
+            for key, value in self.data.items()
+        ])
+        new_data = ', '.join([
+            f'{key} = {repr(value)}'
+            for key, value in kwargs.items()
+        ])
+        if new_data.strip():
+            query = (
+                f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
+            )
+            self._execute(query)
 
     @ classmethod
     def remove_table(cls):
@@ -290,9 +345,8 @@ class DB:
                 cls.columns.keys(),
                 row
             ))
-            print(row)
             result.append(
-                Row(**row)
+                Row(cls.db_name, cls.table_name, **row)
             )
         conn.close()
         return Rows(result)
