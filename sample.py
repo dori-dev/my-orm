@@ -18,6 +18,12 @@ class School(DB):
     students_count = columns.SmallInt(default=300)
 
 
+class Student(DB):
+    person = columns.ForeignKey(Person)
+    school = columns.ForeignKey(School)
+    class_name = columns.VarChar()
+
+
 p1 = Person(
     name='Mohammad',
     family='Dori',
@@ -104,3 +110,23 @@ print(rows.count())
 
 
 print(Person.queries())
+
+
+school1 = School(
+    name='The Sample School',
+    created_at='2002-01-04',
+    address='1600 Amphitheatre Parkway in Mountain View, California',
+)
+
+print(school1)
+
+student = Student(
+    person=p1,
+    school=school1,
+    class_name='A3',
+)
+
+print(school1.id)
+print(p1.id)
+
+print(student)

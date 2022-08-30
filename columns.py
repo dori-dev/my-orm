@@ -1,3 +1,6 @@
+from typing import Union
+
+
 class Column:
     def __init__(self, unique: bool = False,
                  nullable: bool = True, default: str = None) -> None:
@@ -128,3 +131,20 @@ class DateTime(Column):
                  nullable: bool = True, default: str = None) -> None:
         super().__init__(unique, nullable, default)
         self.type = 'DATETIME'
+
+
+class ForeignKey(Column):
+    def __set_name__(self, owner, name):
+        self.column_name_ = name
+
+    def __init__(self, reference: Union[object, str], unique: bool = False,
+                 nullable: bool = True, default: str = None) -> None:
+        super().__init__(unique, nullable, default)
+        self.type = 'INTEGER'
+        if isinstance(reference, object):
+            reference = reference.__name__
+        self.reference = reference.lower()
+
+    def get_foreign_key(self):
+        name = self.column_name_
+        return f'FOREIGN KEY ({name}) REFERENCES {self.reference} (id)'

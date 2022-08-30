@@ -4,6 +4,5 @@ It's a simple ORM built with Python and sqlite.<br>This is not a real ORM to use
 
 #
 # Developing...
-- add Foreign key column
 - create document and video
 - package it

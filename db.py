@@ -2,8 +2,9 @@ from __future__ import annotations
 import os
 import sqlite3
 import inspect
-from typing import Dict, List, NamedTuple, Union
+from typing import Dict, List, NamedTuple, Tuple, Union
 from operators import OPERATORS
+from columns import ForeignKey
 
 
 class GenerateTableName:
@@ -19,7 +20,7 @@ class GenerateDBName:
 
 
 class GetColumns:
-    def get_columns(self, owner) -> Dict[str, str]:
+    def get_columns(self, owner) -> Tuple[str, str]:
         class_variables: Dict[str, str] = owner.__dict__
         return (
             (key, value)
@@ -36,6 +37,22 @@ class GetColumns:
         return {
             'id': 'id INTEGER PRIMARY KEY UNIQUE NOT NULL',
             **columns,
+        }
+
+
+class GetForeignKeys:
+    def get_foreign_key_columns(self, owner) -> Tuple[str, str]:
+        class_variables: Dict[str, str] = owner.__dict__
+        return (
+            (key, value.get_foreign_key())
+            for key, value in class_variables.items()
+            if isinstance(value, ForeignKey)
+        )
+
+    def __get__(self, instance, owner) -> Dict[str, str]:
+        return {
+            key: value
+            for key, value in self.get_foreign_key_columns(owner)
         }
 
 
@@ -119,6 +136,7 @@ class DB:
     db_name = GenerateDBName()
     table_name = GenerateTableName()
     columns = GetColumns()
+    foreign_keys = GetForeignKeys()
     _query = ''
 
     def __init__(self, **data):
@@ -126,6 +144,9 @@ class DB:
             'id': self._get_max_id() + 1,
             **data,
         }
+        for key, value in data.items():
+            if key in self.foreign_keys.keys():
+                data[key] = value.id
         self.data = data
         for key, value in data.items():
             self.__setattr__(key, value)
@@ -277,7 +298,11 @@ class DB:
 
     @ classmethod
     def _create_table(cls) -> str:
-        string_columns = ', '.join(cls.columns.values())
+        columns = list(cls.columns.values()).copy()
+        foreign_keys = ', '.join(cls.foreign_keys.values())
+        if foreign_keys:
+            columns.append(foreign_keys)
+        string_columns = ', '.join(columns)
         query = (f'CREATE TABLE IF NOT EXISTS {cls.table_name}'
                  f'({string_columns});')
         cls._execute(query)
