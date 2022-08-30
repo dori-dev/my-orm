@@ -25,29 +25,47 @@ class GetColumns:
             (key, value)
             for key, value in class_variables.items()
             # remove python magic method from class variables
-            if not key.startswith('__')
+            if not key.startswith('_')
         )
 
     def __get__(self, instance, owner) -> Dict[str, str]:
-        return {
+        columns = {
             name.lower(): f"{name.lower()} {value}"
             for name, value in self.get_columns(owner)
         }
+        return {
+            'id': 'id INTEGER PRIMARY KEY UNIQUE NOT NULL',
+            **columns,
+        }
+
+
+class Row:
+    def __init__(self, **data):
+        self.data = data
+        for key, value in data.items():
+            self.__setattr__(key, value)
+
+    def __repr__(self) -> str:
+        result = ' | '.join([
+            f'{repr(attr)}:{repr(value)}'
+            for attr, value in self.data.items()
+        ])
+        return f"<{result}>"
 
 
 class Rows:
-    def __init__(self, rows: List[DB]):
+    def __init__(self, rows: List[Row]):
         self.rows = rows
 
     def count(self) -> int:
         return len(self.rows)
 
-    def first(self) -> Union[DB, None]:
+    def first(self) -> Union[Row, None]:
         if self.rows:
             return self.rows[0]
         return None
 
-    def last(self) -> Union[DB, None]:
+    def last(self) -> Union[Row, None]:
         if self.rows:
             return self.rows[-1]
         return None
@@ -55,7 +73,7 @@ class Rows:
     def __repr__(self) -> str:
         return repr(self.rows)
 
-    def __iter__(self) -> List[DB]:
+    def __iter__(self) -> List[Row]:
         return iter(self.rows)
 
 
@@ -72,32 +90,38 @@ class DB:
     _query = ''
 
     def __init__(self, **data):
+        data = {
+            'id': self._get_max_id() + 1,
+            **data,
+        }
         self.data = data
         for key, value in data.items():
             self.__setattr__(key, value)
+        self.id = self.id  # just for type hinting
         self.insert(**data)
 
     def __init_subclass__(cls, **kwargs):
         cls._create_table()
 
-    def insert(self, **data: dict):
+    @classmethod
+    def insert(cls, **data: dict):
         fields = ', '.join(data.keys())
         values = ', '.join(
             map(repr, data.values())
         )
-        query = (f'INSERT OR IGNORE INTO {self.table_name} '
+        query = (f'INSERT OR IGNORE INTO {cls.table_name} '
                  f'({fields}) VALUES ({values});')
-        self._execute(query)
+        cls._execute(query)
 
-    @classmethod
-    def all(cls, config: Union[ResultConfig, None] = None) -> List[DB]:
+    @ classmethod
+    def all(cls, config: Union[ResultConfig, None] = None) -> List[Row]:
         filters = cls._set_config(config)
         query = f'SELECT * FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
-    @classmethod
+    @ classmethod
     def get(cls, *fields: dict,
-            config: Union[ResultConfig, None] = None) -> List[DB]:
+            config: Union[ResultConfig, None] = None) -> List[Row]:
         fields = [
             field
             for field in fields
@@ -108,9 +132,9 @@ class DB:
         query = f'SELECT {fields_string} FROM {cls.table_name} {filters};'
         return cls._fetchall(query)
 
-    @classmethod
+    @ classmethod
     def filter(cls, *args, config: Union[ResultConfig, None] = None,
-               **kwargs) -> List[DB]:
+               **kwargs) -> List[Row]:
         conditions = []
         for key, value in kwargs.items():
             if key not in cls.columns:
@@ -130,81 +154,77 @@ class DB:
         )
         return cls._fetchall(query)
 
-    @classmethod
+    @ classmethod
     def max(cls, column_name: str):
         query = f'SELECT MAX({column_name}) FROM {cls.table_name}'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
-    @classmethod
+    @ classmethod
     def min(cls, column_name: str):
         query = f'SELECT MIN({column_name}) FROM {cls.table_name}'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
-    @classmethod
+    @ classmethod
     def avg(cls, column_name: str):
         query = f'SELECT AVG({column_name}) FROM {cls.table_name}'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
-    @classmethod
+    @ classmethod
     def sum(cls, column_name: str):
         query = f'SELECT SUM({column_name}) FROM {cls.table_name}'
         result = cls._fetch_result(query)
         if result:
             return {column_name: result[0]}
 
-    @classmethod
+    @ classmethod
     def count(cls):
         query = f'SELECT COUNT(1) FROM {cls.table_name}'
         result = cls._fetch_result(query)
         if result:
             return {'count': result[0]}
 
-    def remove(self):
-        where = ' AND '.join([
-            f'{key} = {repr(value)}'
-            for key, value in self.data.items()
-        ])
-        query = f'DELETE FROM {self.table_name} WHERE {where}'
-        self._execute(query)
-
-    def update(self, **kwargs):
-        where = ' AND '.join([
-            f'{key} = {repr(value)}'
-            for key, value in self.data.items()
-        ])
-        new_data = ', '.join([
-            f'{key} = {repr(value)}'
-            for key, value in kwargs.items()
-        ])
-        if new_data.strip():
-            query = (
-                f'UPDATE {self.table_name} SET {new_data} WHERE {where}'
-            )
-            self._execute(query)
+    @classmethod
+    def first(cls) -> DB:
+        query = f'SELECT * FROM {cls.table_name} WHERE id=1'
+        result = cls._fetch_result(query)
+        if result is None:
+            return None
+        row = dict(zip(cls.columns.keys(), result))
+        return Row(**row)
 
     @classmethod
+    def last(cls) -> DB:
+        max_id = cls._get_max_id()
+        query = f'SELECT * FROM {cls.table_name} WHERE id={max_id}'
+        result = cls._fetch_result(query)
+        if result is None:
+            return None
+        row = dict(zip(cls.columns.keys(), result))
+        return Row(**row)
+
+    @ classmethod
     def remove_table(cls):
         query = f'DROP TABLE {cls.table_name}'
         cls._execute(query)
 
-    @classmethod
+    @ classmethod
     def queries(cls):
         return cls._query.strip()
 
-    @classmethod
+    @ classmethod
     def _create_table(cls) -> str:
         string_columns = ', '.join(cls.columns.values())
-        query = ('CREATE TABLE IF NOT EXISTS '
-                 f'{cls.table_name}({string_columns});')
+        query = (f'CREATE TABLE IF NOT EXISTS {cls.table_name}'
+                 f'({string_columns});')
         cls._execute(query)
 
-    @staticmethod
+    @ staticmethod
     def _set_config(config: Union[ResultConfig, None]) -> str:
         if config is None:
             return ''
@@ -224,7 +244,7 @@ class DB:
                 sorting = ' DESC'
         return f'{limit}{order_by}{sorting}'
 
-    @staticmethod
+    @ staticmethod
     def _set_operator_filter(key: str, value: str):
         filter = key.split('__')
         if len(filter) != 2:
@@ -240,8 +260,16 @@ class DB:
             return (
                 f'{key} BETWEEN {repr(start)} AND {repr(end)}'
             )
+        else:
+            return None
 
-    @classmethod
+    @ classmethod
+    def _get_max_id(cls):
+        query = f'SELECT MAX(id) FROM {cls.table_name}'
+        result = cls._fetch_result(query)
+        return result[0] or 0
+
+    @ classmethod
     def _execute(cls, query: str):
         cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
@@ -249,8 +277,8 @@ class DB:
         conn.commit()
         conn.close()
 
-    @classmethod
-    def _fetchall(cls, query: str) -> list:
+    @ classmethod
+    def _fetchall(cls, query: str) -> Rows:
         cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
         cur = conn.cursor()
@@ -262,13 +290,14 @@ class DB:
                 cls.columns.keys(),
                 row
             ))
+            print(row)
             result.append(
-                cls(**row)
+                Row(**row)
             )
         conn.close()
         return Rows(result)
 
-    @classmethod
+    @ classmethod
     def _fetch_result(cls, query: str):
         cls._query += f"{query}\n\n"
         conn = sqlite3.connect(cls.db_name)
