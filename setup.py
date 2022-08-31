@@ -8,8 +8,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="my-orm",
-    version="4.5.8",
+    name="dori-orm",
+    version="4.6.0",
     author="Mohammad Dori",
     author_email="mr.dori.dev@gmail.com",
     description="simple orm, to manage your database.",

@@ -1,6 +1,6 @@
-from my_orm import DB, ResultConfig
-from my_orm.operators import AND, OR, NOT
-from my_orm import columns
+from dori_orm import DB, ResultConfig
+from dori_orm.operators import AND, OR, NOT
+from dori_orm import columns
 
 
 class Person(DB):
