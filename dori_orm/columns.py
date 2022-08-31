@@ -17,8 +17,8 @@ class Column:
         else:
             constraints += 'NOT NULL'
         if self.unique:
-            constraints += 'UNIQUE'
-        return f'{self.type} {constraints}'.strip()
+            constraints += ' UNIQUE'
+        return f'{self.type} {constraints.strip()}'
 
 
 class Int(Column):

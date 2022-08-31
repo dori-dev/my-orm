@@ -1,3 +1,4 @@
+# pip install dori-orm
 from dori_orm import DB, ResultConfig
 from dori_orm.operators import AND, OR, NOT
 from dori_orm import columns
