@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="dori-orm",
-    version="4.6.0",
+    version="4.6.1",
     author="Mohammad Dori",
     author_email="mr.dori.dev@gmail.com",
     description="simple orm, to manage your database.",
