@@ -1,6 +1,6 @@
-from db import DB, ResultConfig
-from operators import AND, OR, NOT
-import columns
+from my_orm import DB, ResultConfig
+from my_orm.operators import AND, OR, NOT
+from my_orm import columns
 
 
 class Person(DB):

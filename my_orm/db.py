@@ -3,8 +3,8 @@ import os
 import sqlite3
 import inspect
 from typing import Dict, List, NamedTuple, Tuple, Union
-from operators import OPERATORS
-from columns import ForeignKey
+from my_orm.operators import OPERATORS
+from my_orm.columns import ForeignKey
 
 
 class GenerateTableName:
